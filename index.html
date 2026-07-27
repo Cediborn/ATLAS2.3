@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlas — Personal Operating System</title>
+  <meta name="description" content="One system for tasks, notes, calendar, habits, learning, and finance. Atlas is the personal OS built to last." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       TOKENS
+    ============================================================ */
+    :root {
+      --ink:       #1a1a18;
+      --ink-soft:  #4a4a44;
+      --ink-mute:  #8a8a82;
+      --ink-ghost: #c8c8c0;
+
+      --paper:     #f7f5f0;
+      --paper-2:   #f0ede6;
+      --paper-3:   #e8e4db;
+
+      --accent:    #2d5a3d;      /* deep atlas green — cartographic, grounded */
+      --accent-2:  #4a7c5e;
+      --accent-warm: #c4793a;   /* aged map amber — used sparingly */
+
+      --rule:      rgba(26,26,24,0.08);
+      --rule-mid:  rgba(26,26,24,0.14);
+
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 14px;
+
+      --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+      --font-display: 'DM Serif Display', Georgia, serif;
+      --font-body:    'DM Sans', system-ui, sans-serif;
+      --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+
+      --max-w: 1120px;
+      --col-gap: clamp(1.5rem, 4vw, 3rem);
+    }
+
+    /* ============================================================
+       RESET
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: var(--font-body);
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { cursor: pointer; border: none; background: none; font: inherit; }
+    ul { list-style: none; }
+
+    /* ============================================================
+       REDUCED MOTION
+    ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ============================================================
+       LAYOUT UTILITIES
+    ============================================================ */
+    .container {
+      width: 100%;
+      max-width: var(--max-w);
+      margin-inline: auto;
+      padding-inline: clamp(1.25rem, 5vw, 3rem);
+    }
+
+    /* ============================================================
+       TYPOGRAPHY SCALE
+    ============================================================ */
+    .t-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+    }
+    .t-display {
+      font-family: var(--font-display);
+      font-size: clamp(2.75rem, 6vw, 5.25rem);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .t-headline {
+      font-family: var(--font-display);
+      font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+    }
+    .t-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.25rem, 2.5vw, 1.625rem);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+    }
+    .t-body-lg {
+      font-size: clamp(1rem, 1.5vw, 1.125rem);
+      line-height: 1.65;
+      color: var(--ink-soft);
+    }
+    .t-body {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      color: var(--ink-soft);
+    }
+    .t-small {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      color: var(--ink-mute);
+    }
+
+    /* ============================================================
+       NAV
+    ============================================================ */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding-block: 1.125rem;
+      background: rgba(247,245,240,0);
+      transition: background 0.3s var(--ease-out), backdrop-filter 0.3s var(--ease-out);
+    }
+    .nav.scrolled {
+      background: rgba(247,245,240,0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--rule);
+    }
+    .nav__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .nav__logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .nav__logo-mark {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    .nav__logo-name {
+      font-family: var(--font-display);
+      font-size: 1.1875rem;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .nav__links {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+    }
+    .nav__link {
+      font-size: 0.875rem;
+      font-weight: 400;
+      color: var(--ink-soft);
+      transition: color 0.15s;
+    }
+    .nav__link:hover { color: var(--ink); }
+    .nav__cta {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--paper);
+      background: var(--ink);
+      padding: 0.5rem 1.125rem;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s, transform 0.15s;
+    }
+    .nav__cta:hover { background: var(--accent); transform: translateY(-1px); }
+
+    @media (max-width: 680px) {
+      .nav__links { display: none; }
+    }
+
+    /* ============================================================
+       HERO
+    ============================================================ */
+    .hero {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-top: 5rem;
+      padding-bottom: 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle topographic texture via SVG */
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='800'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .hero__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--col-gap);
+      align-items: center;
+    }
+    .hero__content { position: relative; z-index: 1; }
+    .hero__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fadeUp 0.6s var(--ease-out) 0.1s forwards;
+    }
+    .hero__eyebrow-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .hero__heading {
+      margin-bottom: 1.5rem;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.7s var(--ease-out) 0.2s forwards;
+    }
+    .hero__heading em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .hero__subtext {
+      max-width: 42ch;
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeUp 0.7s var(--ease-out) 0.35s forwards;
+    }
+    .hero__actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeUp 0.7s var(--ease-out) 0.5s forwards;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--paper);
+      background: var(--ink);
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-primary:hover {
+      background: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(45,90,61,0.2);
+    }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.9375rem;
+      color: var(--ink-soft);
+      padding: 0.75rem 0.25rem;
+      border-bottom: 1px solid var(--rule-mid);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-ghost:hover { color: var(--ink); border-color: var(--ink); }
+    .btn-ghost svg { transition: transform 0.2s var(--ease-out); }
+    .btn-ghost:hover svg { transform: translateX(3px); }
+
+    /* Hero visual — command palette mock */
+    .hero__visual {
+      position: relative;
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+      animation: fadeUp 0.8s var(--ease-out) 0.45s forwards;
+    }
+    .hero__palette {
+      background: var(--ink);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.06),
+        0 24px 64px rgba(26,26,24,0.28),
+        0 8px 24px rgba(26,26,24,0.16);
+    }
+    .palette__header {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .palette__dots { display: flex; gap: 0.4rem; }
+    .palette__dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .palette__dot--r { background: #ff5f57; }
+    .palette__dot--y { background: #febc2e; }
+    .palette__dot--g { background: #28c840; }
+    .palette__search {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255,255,255,0.06);
+      border-radius: var(--radius-sm);
+      padding: 0.375rem 0.625rem;
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.5);
+    }
+    .palette__search-icon { opacity: 0.4; flex-shrink: 0; }
+    .palette__kbd {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      color: rgba(255,255,255,0.3);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 3px;
+      padding: 0.125rem 0.375rem;
+      letter-spacing: 0.05em;
+    }
+    .palette__items { padding: 0.5rem 0; }
+    .palette__section-label {
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      padding: 0.625rem 1rem 0.375rem;
+    }
+    .palette__item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1rem;
+      transition: background 0.1s;
+    }
+    .palette__item--active { background: rgba(255,255,255,0.07); }
+    .palette__item-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.75rem;
+    }
+    .palette__item-text { flex: 1; }
+    .palette__item-name {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.82);
+      font-weight: 400;
+    }
+    .palette__item-sub {
+      font-size: 0.6875rem;
+      color: rgba(255,255,255,0.32);
+      margin-top: 1px;
+    }
+    .palette__item-shortcut {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: rgba(255,255,255,0.22);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 3px;
+      padding: 0.1rem 0.3rem;
+    }
+
+    /* Animated cursor blink in search */
+    .palette__cursor {
+      display: inline-block;
+      width: 1.5px;
+      height: 13px;
+      background: rgba(255,255,255,0.5);
+      margin-left: 2px;
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Floating context cards */
+    .hero__float {
+      position: absolute;
+      background: var(--paper);
+      border: 1px solid var(--rule-mid);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      box-shadow: 0 4px 16px rgba(26,26,24,0.08);
+      pointer-events: none;
+      opacity: 0;
+    }
+    .hero__float--1 {
+      right: -2rem;
+      bottom: -2rem;
+      min-width: 200px;
+      animation: floatIn 0.7s var(--ease-out) 1s forwards;
+    }
+    .hero__float--2 {
+      left: -1.5rem;
+      top: -1.5rem;
+      animation: floatIn 0.7s var(--ease-out) 1.2s forwards;
+    }
+    .float-label {
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 0.375rem;
+    }
+    .float-value {
+      font-family: var(--font-display);
+      font-size: 1.125rem;
+      color: var(--ink);
+    }
+    .float-meta {
+      font-size: 0.75rem;
+      color: var(--ink-mute);
+      margin-top: 0.125rem;
+    }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes floatIn {
+      to { opacity: 1; transform: none; }
+    }
+
+    @media (max-width: 860px) {
+      .hero__grid { grid-template-columns: 1fr; }
+      .hero__visual { order: -1; max-width: 480px; margin-inline: auto; }
+      .hero__float--1 { right: 0; bottom: -1rem; }
+      .hero__float--2 { left: 0; top: -1rem; }
+    }
+
+    /* ============================================================
+       DIVIDER
+    ============================================================ */
+    .divider {
+      height: 1px;
+      background: var(--rule);
+    }
+
+    /* ============================================================
+       PHILOSOPHY — "NOT A TO-DO APP" SECTION
+    ============================================================ */
+    .philosophy {
+      padding-block: clamp(4rem, 8vw, 7rem);
+      background: var(--paper-2);
+    }
+    .philosophy__inner {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: var(--col-gap);
+      align-items: start;
+    }
+    .philosophy__left { position: sticky; top: 7rem; }
+    .philosophy__eyebrow { margin-bottom: 1.25rem; }
+    .philosophy__heading { margin-bottom: 1rem; }
+    .philosophy__intro { max-width: 38ch; }
+
+    .philosophy__list { display: flex; flex-direction: column; gap: 0; }
+    .philosophy__item {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr;
+      gap: 1rem;
+      padding-block: 1.75rem;
+      border-bottom: 1px solid var(--rule);
+      opacity: 0;
+      transform: translateX(12px);
+      transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+    }
+    .philosophy__item.in-view {
+      opacity: 1;
+      transform: none;
+    }
+    .philosophy__item:first-child { border-top: 1px solid var(--rule); }
+    .philosophy__num {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      color: var(--accent);
+      font-weight: 500;
+      padding-top: 0.2rem;
+    }
+    .philosophy__item-title {
+      font-family: var(--font-display);
+      font-size: 1.0625rem;
+      color: var(--ink);
+      margin-bottom: 0.375rem;
+    }
+    .philosophy__item-body { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.6; }
+
+    @media (max-width: 800px) {
+      .philosophy__inner { grid-template-columns: 1fr; }
+      .philosophy__left { position: static; }
+    }
+
+    /* ============================================================
+       PILLARS — ONE SYSTEM
+    ============================================================ */
+    .pillars {
+      padding-block: clamp(4rem, 8vw, 7rem);
+    }
+    .pillars__header {
+      max-width: 56ch;
+      margin-bottom: clamp(2.5rem, 5vw, 4rem);
+    }
+    .pillars__eyebrow { margin-bottom: 1rem; }
+    .pillars__heading { margin-bottom: 0.875rem; }
+
+    .pillars__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--rule);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .pillar-card {
+      background: var(--paper);
+      padding: 1.75rem 2rem;
+      transition: background 0.2s;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.45s var(--ease-out), transform 0.45s var(--ease-out), background 0.2s;
+    }
+    .pillar-card.in-view { opacity: 1; transform: none; }
+    .pillar-card:hover { background: var(--paper-2); }
+    .pillar-card__icon {
+      width: 36px; height: 36px;
+      margin-bottom: 1.125rem;
+      color: var(--accent);
+    }
+    .pillar-card__name {
+      font-family: var(--font-display);
+      font-size: 1.0625rem;
+      color: var(--ink);
+      margin-bottom: 0.375rem;
+    }
+    .pillar-card__entity {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      color: var(--accent-2);
+      margin-bottom: 0.625rem;
+      letter-spacing: 0.04em;
+    }
+    .pillar-card__desc { font-size: 0.875rem; color: var(--ink-soft); line-height: 1.55; }
+
+    /* ============================================================
+       AI — AMBIENT INTELLIGENCE
+    ============================================================ */
+    .ai-section {
+      padding-block: clamp(4rem, 8vw, 7rem);
+      background: var(--ink);
+      color: var(--paper);
+      overflow: hidden;
+      position: relative;
+    }
+    .ai-section::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(45,90,61,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .ai-section .container { position: relative; z-index: 1; }
+    .ai-section .t-eyebrow { color: rgba(255,255,255,0.35); }
+    .ai-section .t-headline { color: var(--paper); margin-bottom: 1rem; }
+    .ai-section .t-body-lg { color: rgba(247,245,240,0.6); max-width: 52ch; margin-bottom: 3rem; }
+
+    .ai-demo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    .ai-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+    }
+    .ai-card.in-view { opacity: 1; transform: none; }
+    .ai-card__label {
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      margin-bottom: 1rem;
+    }
+
+    /* Quick capture demo */
+    .capture-input {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-sm);
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 1rem;
+      font-family: var(--font-body);
+    }
+    .capture-parsed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .parsed-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8125rem;
+    }
+    .parsed-key {
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      color: rgba(255,255,255,0.3);
+      min-width: 4rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .parsed-val {
+      color: rgba(255,255,255,0.75);
+      font-size: 0.8125rem;
+    }
+    .parsed-tag {
+      display: inline-block;
+      background: rgba(45,90,61,0.35);
+      color: #7dc99a;
+      border-radius: 3px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+    }
+
+    /* Summary demo */
+    .summary-lines { display: flex; flex-direction: column; gap: 0.625rem; }
+    .summary-line {
+      display: flex;
+      gap: 0.625rem;
+      align-items: flex-start;
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.62);
+      line-height: 1.5;
+    }
+    .summary-line::before {
+      content: '→';
+      color: var(--accent-2);
+      flex-shrink: 0;
+      font-size: 0.75rem;
+      margin-top: 0.1rem;
+    }
+
+    @media (max-width: 680px) {
+      .ai-demo { grid-template-columns: 1fr; }
+    }
+
+    /* ============================================================
+       LINK GRAPH — EVERYTHING CONNECTS
+    ============================================================ */
+    .links-section {
+      padding-block: clamp(4rem, 8vw, 7rem);
+      background: var(--paper-2);
+    }
+    .links-section__inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--col-gap);
+      align-items: center;
+    }
+    .links-section .t-eyebrow { margin-bottom: 1rem; }
+    .links-section .t-headline { margin-bottom: 1rem; }
+    .links-section .t-body-lg { max-width: 44ch; }
+
+    /* Link graph SVG visual */
+    .link-graph {
+      position: relative;
+      background: var(--paper);
+      border: 1px solid var(--rule-mid);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      overflow: hidden;
+      min-height: 280px;
+    }
+    .link-graph svg { width: 100%; height: 100%; }
+
+    /* Node pills */
+    .graph-nodes {
+      position: relative;
+      height: 240px;
+    }
+    .g-node {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--paper);
+      border: 1px solid var(--rule-mid);
+      border-radius: 999px;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--ink);
+      box-shadow: 0 2px 8px rgba(26,26,24,0.06);
+      cursor: default;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .g-node:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 12px rgba(45,90,61,0.15);
+    }
+    .g-node-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    /* node positions */
+    .g-node--task    { top: 10%;  left: 50%;  transform: translateX(-50%); }
+    .g-node--note    { top: 32%;  left: 5%; }
+    .g-node--event   { top: 32%;  right: 5%; }
+    .g-node--habit   { bottom: 28%; left: 12%; }
+    .g-node--finance { bottom: 28%; right: 12%; }
+    .g-node--learn   { bottom: 5%;  left: 50%; transform: translateX(-50%); }
+
+    /* SVG lines */
+    .graph-lines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    @media (max-width: 800px) {
+      .links-section__inner { grid-template-columns: 1fr; }
+    }
+
+    /* ============================================================
+       PRINCIPLES — DESIGN SYSTEM
+    ============================================================ */
+    .design-section {
+      padding-block: clamp(4rem, 8vw, 7rem);
+    }
+    .design-section__header { margin-bottom: 3rem; }
+    .design-section .t-eyebrow { margin-bottom: 1rem; }
+    .design-section .t-headline { margin-bottom: 0.75rem; max-width: 44ch; }
+
+    .design-tokens {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    .token-group__label {
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-mute);
+      margin-bottom: 0.875rem;
+    }
+    .token-swatches { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+    .swatch {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--rule);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .swatch::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -1.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.5rem;
+      font-family: var(--font-mono);
+      color: var(--ink-mute);
+      white-space: nowrap;
+    }
+
+    .type-scale { display: flex; flex-direction: column; gap: 0.625rem; }
+    .type-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.875rem;
+      padding-block: 0.25rem;
+    }
+    .type-size {
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      color: var(--ink-mute);
+      min-width: 2.5rem;
+    }
+    .type-sample {
+      font-family: var(--font-display);
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .radius-samples { display: flex; gap: 0.875rem; align-items: center; flex-wrap: wrap; }
+    .radius-box {
+      background: var(--paper-3);
+      border: 1px solid var(--rule-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .radius-box span {
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      color: var(--ink-mute);
+    }
+
+    @media (max-width: 780px) {
+      .design-tokens { grid-template-columns: 1fr; gap: 2.5rem; }
+    }
+
+    /* ============================================================
+       ROADMAP
+    ============================================================ */
+    .roadmap {
+      padding-block: clamp(4rem, 8vw, 7rem);
+      background: var(--paper-2);
+    }
+    .roadmap__header { margin-bottom: 3rem; }
+    .roadmap .t-eyebrow { margin-bottom: 1rem; }
+    .roadmap .t-headline { margin-bottom: 0.75rem; max-width: 44ch; }
+
+    .roadmap__track {
+      position: relative;
+      padding-left: 2.25rem;
+    }
+    .roadmap__track::before {
+      content: '';
+      position: absolute;
+      left: 0.5625rem;
+      top: 0.75rem;
+      bottom: 0.75rem;
+      width: 1px;
+      background: var(--rule-mid);
+    }
+
+    .roadmap__phase {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1.25rem;
+      padding-block: 1.5rem;
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+    }
+    .roadmap__phase.in-view { opacity: 1; transform: none; }
+    .roadmap__phase:not(:last-child) {
+      border-bottom: 1px solid var(--rule);
+    }
+    .roadmap__dot-wrap {
+      position: absolute;
+      left: -2.25rem;
+      top: 1.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .roadmap__dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--paper-2);
+      flex-shrink: 0;
+    }
+    .roadmap__dot--done    { background: var(--accent); border-color: var(--paper-2); }
+    .roadmap__dot--active  { background: var(--accent-warm); border-color: var(--paper-2); box-shadow: 0 0 0 3px rgba(196,121,58,0.2); }
+    .roadmap__dot--pending { background: var(--ink-ghost); border-color: var(--paper-2); }
+
+    .roadmap__phase-num {
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      color: var(--ink-mute);
+      letter-spacing: 0.08em;
+      padding-top: 0.35rem;
+      white-space: nowrap;
+    }
+    .roadmap__phase-title {
+      font-family: var(--font-display);
+      font-size: 1.0625rem;
+      color: var(--ink);
+      margin-bottom: 0.25rem;
+    }
+    .roadmap__phase-desc { font-size: 0.875rem; color: var(--ink-soft); line-height: 1.55; max-width: 60ch; }
+    .roadmap__badge {
+      display: inline-flex;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.5625rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .roadmap__badge--done   { background: rgba(45,90,61,0.1); color: var(--accent); }
+    .roadmap__badge--active { background: rgba(196,121,58,0.12); color: var(--accent-warm); }
+    .roadmap__badge--next   { background: rgba(26,26,24,0.06); color: var(--ink-mute); }
+
+    /* ============================================================
+       PRINCIPLES — MANIFESTO
+    ============================================================ */
+    .manifesto {
+      padding-block: clamp(5rem, 10vw, 9rem);
+      text-align: center;
+    }
+    .manifesto .t-eyebrow { margin-bottom: 1.5rem; display: block; }
+    .manifesto__quote {
+      font-family: var(--font-display);
+      font-size: clamp(1.5rem, 3.5vw, 2.75rem);
+      line-height: 1.2;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      max-width: 22ch;
+      margin-inline: auto;
+      margin-bottom: 1.5rem;
+    }
+    .manifesto__quote em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .manifesto__attr {
+      font-size: 0.875rem;
+      color: var(--ink-mute);
+    }
+
+    /* ============================================================
+       CTA
+    ============================================================ */
+    .cta-section {
+      padding-block: clamp(4rem, 8vw, 7rem);
+      background: var(--ink);
+      color: var(--paper);
+      text-align: center;
+    }
+    .cta-section .t-eyebrow { color: rgba(255,255,255,0.3); display: block; margin-bottom: 1.5rem; }
+    .cta-section .t-headline { color: var(--paper); margin-bottom: 1rem; }
+    .cta-section .t-body-lg { color: rgba(247,245,240,0.5); margin-bottom: 2.5rem; max-width: 44ch; margin-inline: auto; }
+
+    .cta-actions {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+    .btn-primary-inv {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--ink);
+      background: var(--paper);
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s, transform 0.15s;
+    }
+    .btn-primary-inv:hover { background: #e8e4db; transform: translateY(-2px); }
+    .btn-ghost-inv {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.5);
+      padding: 0.75rem 0.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-ghost-inv:hover { color: var(--paper); border-color: rgba(255,255,255,0.4); }
+
+    .cta-principles {
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+    }
+    .cta-principle {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.35);
+    }
+    .cta-principle svg { flex-shrink: 0; }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    .footer {
+      padding-block: 2rem;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      background: var(--ink);
+    }
+    .footer__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .footer__left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .footer__logo {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      color: rgba(255,255,255,0.5);
+    }
+    .footer__sep {
+      color: rgba(255,255,255,0.15);
+    }
+    .footer__tagline {
+      font-size: 0.8125rem;
+      color: rgba(255,255,255,0.25);
+    }
+    .footer__right {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.2);
+      font-family: var(--font-mono);
+    }
+
+    /* ============================================================
+       SCROLL ANIMATIONS UTILITY
+    ============================================================ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.55s var(--ease-out), transform 0.55s var(--ease-out);
+    }
+    .reveal.in-view { opacity: 1; transform: none; }
+
+    /* stagger delays */
+    .stagger-1 { transition-delay: 0.05s; }
+    .stagger-2 { transition-delay: 0.1s; }
+    .stagger-3 { transition-delay: 0.15s; }
+    .stagger-4 { transition-delay: 0.2s; }
+    .stagger-5 { transition-delay: 0.25s; }
+    .stagger-6 { transition-delay: 0.3s; }
+    .stagger-7 { transition-delay: 0.35s; }
+    .stagger-8 { transition-delay: 0.4s; }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       NAV
+  ============================================================ -->
+  <nav class="nav" id="nav" role="navigation" aria-label="Primary">
+    <div class="container">
+      <div class="nav__inner">
+        <a href="/" class="nav__logo" aria-label="Atlas home">
+          <!-- Atlas logomark: stylized A / cartographic pin -->
+          <svg class="nav__logo-mark" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <rect width="28" height="28" rx="7" fill="#1a1a18"/>
+            <path d="M14 6L20 20H8L14 6Z" stroke="#f7f5f0" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+            <line x1="10.5" y1="16" x2="17.5" y2="16" stroke="#2d5a3d" stroke-width="1.5"/>
+          </svg>
+          <span class="nav__logo-name">Atlas</span>
+        </a>
+
+        <ul class="nav__links" role="list">
+          <li><a href="#philosophy" class="nav__link">Philosophy</a></li>
+          <li><a href="#pillars" class="nav__link">Pillars</a></li>
+          <li><a href="#roadmap" class="nav__link">Roadmap</a></li>
+        </ul>
+
+        <a href="app/index.html" class="nav__cta">Launch Atlas</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       HERO
+  ============================================================ -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="container">
+      <div class="hero__grid">
+
+        <!-- Left: copy -->
+        <div class="hero__content">
+          <div class="hero__eyebrow">
+            <span class="hero__eyebrow-dot" aria-hidden="true"></span>
+            <span class="t-eyebrow">Personal operating system</span>
+          </div>
+
+          <h1 class="t-display hero__heading" id="hero-heading">
+            One place<br>for <em>everything</em><br>you manage.
+          </h1>
+
+          <p class="t-body-lg hero__subtext">
+            Atlas isn't another to-do app or a note-taker with a sidebar. It's the single system where tasks, notes, calendar, habits, learning, and finance live together — and actually talk to each other.
+          </p>
+
+          <div class="hero__actions">
+            <a href="#app/index.html" class="btn-primary">
+              Start building
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+            <a href="#philosophy" class="btn-ghost">
+              Read the philosophy
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                <path d="M2 6.5h9M8 3.5l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Right: command palette mockup -->
+        <div class="hero__visual">
+          <!-- Floating context: streak -->
+          <div class="hero__float hero__float--2" aria-hidden="true">
+            <div class="float-label">Current streak</div>
+            <div class="float-value">14 days</div>
+            <div class="float-meta">Writing · 07:30 am daily</div>
+          </div>
+
+          <div class="hero__palette" role="img" aria-label="Atlas command palette interface preview">
+            <div class="palette__header">
+              <div class="palette__dots" aria-hidden="true">
+                <div class="palette__dot palette__dot--r"></div>
+                <div class="palette__dot palette__dot--y"></div>
+                <div class="palette__dot palette__dot--g"></div>
+              </div>
+              <div class="palette__search">
+                <svg class="palette__search-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <circle cx="5" cy="5" r="3.5" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/>
+                  <path d="M7.5 7.5L10 10" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                <span>call John tom<span class="palette__cursor"></span></span>
+                <span class="palette__kbd">⌘K</span>
+              </div>
+            </div>
+
+            <div class="palette__items">
+              <div class="palette__section-label">Quick actions</div>
+
+              <div class="palette__item palette__item--active">
+                <div class="palette__item-icon" style="background:rgba(45,90,61,0.2);">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <rect x="1" y="1" width="10" height="10" rx="2" stroke="#7dc99a" stroke-width="1.2"/>
+                    <path d="M4 6l1.5 1.5L8 4" stroke="#7dc99a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="palette__item-text">
+                  <div class="palette__item-name">Create task · call John</div>
+                  <div class="palette__item-sub">Due tomorrow · parsed by AI</div>
+                </div>
+                <span class="palette__item-shortcut">↵</span>
+              </div>
+
+              <div class="palette__item">
+                <div class="palette__item-icon" style="background:rgba(74,124,94,0.15);">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <rect x="1" y="2" width="10" height="9" rx="1.5" stroke="rgba(255,255,255,0.35)" stroke-width="1.2"/>
+                    <path d="M4 1v2M8 1v2M1 5h10" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="palette__item-text">
+                  <div class="palette__item-name">Schedule event · call John</div>
+                  <div class="palette__item-sub">Tomorrow · linked to task</div>
+                </div>
+              </div>
+
+              <div class="palette__section-label">Recent</div>
+
+              <div class="palette__item">
+                <div class="palette__item-icon" style="background:rgba(255,255,255,0.05);">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2 2h8v8H2z" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" stroke-linejoin="round"/>
+                    <path d="M4 5h4M4 7h2" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="palette__item-text">
+                  <div class="palette__item-name">Q3 Strategy · note</div>
+                  <div class="palette__item-sub">Edited 2 hours ago</div>
+                </div>
+              </div>
+
+              <div class="palette__item">
+                <div class="palette__item-icon" style="background:rgba(196,121,58,0.15);">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <circle cx="6" cy="6" r="4.5" stroke="rgba(196,121,58,0.7)" stroke-width="1.2"/>
+                    <path d="M6 3.5V6l2 1" stroke="rgba(196,121,58,0.7)" stroke-width="1.2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="palette__item-text">
+                  <div class="palette__item-name">Deep work · today 09:00</div>
+                  <div class="palette__item-sub">2 hrs · Focus block</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floating context: finance -->
+          <div class="hero__float hero__float--1" aria-hidden="true">
+            <div class="float-label">July savings rate</div>
+            <div class="float-value">34%</div>
+            <div class="float-meta">↑ 6% vs last month</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       PHILOSOPHY
+  ============================================================ -->
+  <section class="philosophy" id="philosophy" aria-labelledby="philosophy-heading">
+    <div class="container">
+      <div class="philosophy__inner">
+
+        <div class="philosophy__left reveal">
+          <p class="t-eyebrow philosophy__eyebrow">Philosophy</p>
+          <h2 class="t-headline philosophy__heading" id="philosophy-heading">
+            Why another system?
+          </h2>
+          <p class="t-body-lg philosophy__intro">
+            Most productivity tools are fast to ship and slow to trust. Atlas is designed the other way around — boring, proven technology, built to outlast the apps you'll abandon next year.
+          </p>
+        </div>
+
+        <ul class="philosophy__list" role="list">
+          <li class="philosophy__item">
+            <span class="philosophy__num">01</span>
+            <div>
+              <div class="philosophy__item-title">Calm by default</div>
+              <p class="philosophy__item-body">Minimal chrome. Content over UI. No notification badges competing for attention. The interface gets out of the way.</p>
+            </div>
+          </li>
+          <li class="philosophy__item">
+            <span class="philosophy__num">02</span>
+            <div>
+              <div class="philosophy__item-title">Fast is a feature</div>
+              <p class="philosophy__item-body">Every interaction feels instant. Optimistic UI, no spinners for common actions. If you feel a delay, something is wrong.</p>
+            </div>
+          </li>
+          <li class="philosophy__item">
+            <span class="philosophy__num">03</span>
+            <div>
+              <div class="philosophy__item-title">One system, not seven apps</div>
+              <p class="philosophy__item-body">Tasks, notes, calendar, habits, learning, and finance share the same primitives and reference each other. Universal search spans all of it.</p>
+            </div>
+          </li>
+          <li class="philosophy__item">
+            <span class="philosophy__num">04</span>
+            <div>
+              <div class="philosophy__item-title">Keyboard-first, mouse-optional</div>
+              <p class="philosophy__item-body">The command palette (⌘K) is the primary way to move around and act. You should rarely need to reach for the mouse.</p>
+            </div>
+          </li>
+          <li class="philosophy__item">
+            <span class="philosophy__num">05</span>
+            <div>
+              <div class="philosophy__item-title">You own your data</div>
+              <p class="philosophy__item-body">Everything exports to JSON and Markdown. No lock-in. No dark patterns. Your data works without Atlas if you ever leave.</p>
+            </div>
+          </li>
+          <li class="philosophy__item">
+            <span class="philosophy__num">06</span>
+            <div>
+              <div class="philosophy__item-title">AI is ambient, not a chatbot</div>
+              <p class="philosophy__item-body">The AI shows up inline — quick-capture parsing, summaries, suggestions — not a separate tab you have to remember to open.</p>
+            </div>
+          </li>
+          <li class="philosophy__item">
+            <span class="philosophy__num">07</span>
+            <div>
+              <div class="philosophy__item-title">Built to last</div>
+              <p class="philosophy__item-body">Boring, proven technology. Premium comes from execution and taste, not trend-chasing. TypeScript, PostgreSQL, React — nothing exotic.</p>
+            </div>
+          </li>
+        </ul>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       PILLARS
+  ============================================================ -->
+  <section class="pillars" id="pillars" aria-labelledby="pillars-heading">
+    <div class="container">
+
+      <div class="pillars__header reveal">
+        <p class="t-eyebrow pillars__eyebrow">The eight pillars</p>
+        <h2 class="t-headline pillars__heading" id="pillars-heading">
+          Every area of your life,<br>in one coherent system.
+        </h2>
+        <p class="t-body-lg">
+          Each pillar is a typed domain with its own schema. Together, they're held by a universal linking layer — so a task can reference a note, a habit can link to a project, and nothing lives in a silo.
+        </p>
+      </div>
+
+      <div class="pillars__grid" role="list">
+
+        <!-- Projects -->
+        <article class="pillar-card stagger-1" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <path d="M6 10h24M6 18h14M6 26h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="28" cy="26" r="4" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M26.5 26l1 1 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="pillar-card__name">Projects &amp; Tasks</div>
+          <div class="pillar-card__entity">Project · Task</div>
+          <p class="pillar-card__desc">Hierarchical projects that link to notes, events, and each other. Every task is a first-class entity with history.</p>
+        </article>
+
+        <!-- Notes -->
+        <article class="pillar-card stagger-2" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <rect x="6" y="5" width="24" height="26" rx="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M11 12h14M11 18h10M11 24h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <div class="pillar-card__name">Notes</div>
+          <div class="pillar-card__entity">Note (block-based)</div>
+          <p class="pillar-card__desc">Freeform, block-based notes that can reference any task, event, or resource. Backlinks surface automatically.</p>
+        </article>
+
+        <!-- Calendar -->
+        <article class="pillar-card stagger-3" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <rect x="5" y="7" width="26" height="22" rx="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M5 13h26" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M12 5v4M24 5v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="11" y="18" width="5" height="5" rx="1" fill="currentColor" opacity="0.3"/>
+          </svg>
+          <div class="pillar-card__name">Calendar</div>
+          <div class="pillar-card__entity">Event</div>
+          <p class="pillar-card__desc">Two-way link between tasks and events. Schedule a task and it becomes an event. Complete it and both update.</p>
+        </article>
+
+        <!-- Habits -->
+        <article class="pillar-card stagger-4" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <circle cx="18" cy="18" r="12" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M12 18l4 4 8-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="pillar-card__name">Habits</div>
+          <div class="pillar-card__entity">Habit · HabitLog</div>
+          <p class="pillar-card__desc">Daily and weekly cadences with streak tracking. Simple enough to log in two taps; powerful enough to show trends over years.</p>
+        </article>
+
+        <!-- Learning -->
+        <article class="pillar-card stagger-5" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <path d="M6 12l12-5 12 5-12 5L6 12Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M12 14.5V22c0 2 3 4 6 4s6-2 6-4v-7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="pillar-card__name">Learning</div>
+          <div class="pillar-card__entity">Resource · Progress</div>
+          <p class="pillar-card__desc">Track books, courses, and articles with per-resource progress. Link learnings directly to projects or notes.</p>
+        </article>
+
+        <!-- Finance -->
+        <article class="pillar-card stagger-6" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <rect x="5" y="8" width="26" height="20" rx="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M5 15h26" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="9" y="20" width="5" height="3" rx="1" fill="currentColor" opacity="0.4"/>
+          </svg>
+          <div class="pillar-card__name">Finance</div>
+          <div class="pillar-card__entity">Account · Transaction</div>
+          <p class="pillar-card__desc">Manual entry to start, CSV import to follow. Your financial picture lives alongside everything else — no separate app needed.</p>
+        </article>
+
+        <!-- AI -->
+        <article class="pillar-card stagger-7" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <path d="M10 26c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="18" cy="13" r="4" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M24 8l2-2M26 14h2M24 20l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
+          </svg>
+          <div class="pillar-card__name">AI Layer</div>
+          <div class="pillar-card__entity">Ambient · cross-cutting</div>
+          <p class="pillar-card__desc">Capture parsing, summarization, weekly review generation. AI shows up where you already work — never in a separate tab.</p>
+        </article>
+
+        <!-- Analytics -->
+        <article class="pillar-card stagger-8" role="listitem">
+          <svg class="pillar-card__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+            <path d="M6 28V18l6-4 6 4 6-8 6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6 28h24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="pillar-card__name">Analytics</div>
+          <div class="pillar-card__entity">Activity log · cross-cutting</div>
+          <p class="pillar-card__desc">Derived from an append-only event log built in from day one. Dashboards that span every pillar — tasks, habits, finance, learning.</p>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       AI SECTION
+  ============================================================ -->
+  <section class="ai-section" id="ai" aria-labelledby="ai-heading">
+    <div class="container">
+      <span class="t-eyebrow">Ambient intelligence</span>
+      <h2 class="t-headline reveal" id="ai-heading" style="margin-top:1rem;">
+        AI that shows up<br>where you're already working.
+      </h2>
+      <p class="t-body-lg reveal">
+        No chat sidebar. No "ask Atlas" button. The AI parses what you type, summarizes what you've done, and surfaces what matters — without making itself the center of attention.
+      </p>
+
+      <div class="ai-demo">
+
+        <!-- Quick capture demo -->
+        <div class="ai-card stagger-1">
+          <div class="ai-card__label">Quick capture · ⌘ Space</div>
+          <div class="capture-input">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 6l3.5 3.5L11 2" stroke="rgba(255,255,255,0.4)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            call John tomorrow 3pm re: Q3 budget
+          </div>
+          <div class="capture-parsed">
+            <div class="parsed-row">
+              <span class="parsed-key">Type</span>
+              <span class="parsed-tag">task</span>
+            </div>
+            <div class="parsed-row">
+              <span class="parsed-key">Title</span>
+              <span class="parsed-val">Call John</span>
+            </div>
+            <div class="parsed-row">
+              <span class="parsed-key">Due</span>
+              <span class="parsed-val">Tomorrow · 15:00</span>
+            </div>
+            <div class="parsed-row">
+              <span class="parsed-key">Context</span>
+              <span class="parsed-val">Q3 budget</span>
+            </div>
+            <div class="parsed-row">
+              <span class="parsed-key">Linked</span>
+              <span class="parsed-tag">note</span><span class="parsed-val" style="margin-left:0.3rem">Q3 Strategy</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weekly summary demo -->
+        <div class="ai-card stagger-2">
+          <div class="ai-card__label">Weekly review · generated Sunday</div>
+          <div class="summary-lines">
+            <div class="summary-line">Completed 14 tasks — up 3 from last week. Momentum on Atlas dev is consistent.</div>
+            <div class="summary-line">Writing habit held for 14 days straight. Only two missed days this month.</div>
+            <div class="summary-line">Savings rate improved to 34% — strongest month of Q3 so far.</div>
+            <div class="summary-line">3 chapters of Designing Data-Intensive Apps completed. On pace to finish by August.</div>
+            <div class="summary-line">4 tasks on Q3 Strategy note are overdue — consider rescheduling or delegating.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider" style="background:rgba(255,255,255,0.06);"></div>
+
+  <!-- ============================================================
+       LINKS SECTION
+  ============================================================ -->
+  <section class="links-section" id="links" aria-labelledby="links-heading">
+    <div class="container">
+      <div class="links-section__inner">
+
+        <div class="reveal">
+          <p class="t-eyebrow">Universal linking</p>
+          <h2 class="t-headline" id="links-heading">
+            Everything can<br>reference everything.
+          </h2>
+          <p class="t-body-lg" style="margin-top:1rem;">
+            A generic <code style="font-family:var(--font-mono);font-size:0.875em;background:var(--paper-3);padding:0.1em 0.35em;border-radius:3px;">links</code> table sits beneath all eight pillars. Any entity can point to any other — task to note, note to event, habit to project. No redesigning the data layer to add a new connection.
+          </p>
+          <p class="t-body" style="margin-top:1rem;">
+            Backlinks surface automatically. The AI layer uses the graph to generate context-aware summaries and surface related items without you asking.
+          </p>
+        </div>
+
+        <!-- Graph visual -->
+        <div class="link-graph reveal" aria-label="Diagram showing how Atlas pillars link to each other" role="img">
+          <div class="graph-nodes">
+            <!-- SVG lines -->
+            <svg class="graph-lines" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <defs>
+                <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="rgba(26,26,24,0.12)"/>
+                </marker>
+              </defs>
+              <!-- center = task ~200,45 -->
+              <!-- note ~30,90 -->
+              <!-- event ~350,90 -->
+              <!-- habit ~60,175 -->
+              <!-- finance ~330,175 -->
+              <!-- learn ~200,215 -->
+              <line x1="200" y1="52" x2="80" y2="90" stroke="rgba(45,90,61,0.25)" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="200" y1="52" x2="320" y2="90" stroke="rgba(45,90,61,0.25)" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="80" y1="104" x2="100" y2="174" stroke="rgba(26,26,24,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="320" y1="104" x2="300" y2="174" stroke="rgba(26,26,24,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="120" y1="183" x2="200" y2="212" stroke="rgba(26,26,24,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="290" y1="183" x2="200" y2="212" stroke="rgba(26,26,24,0.1)" stroke-width="1" stroke-dasharray="3,3"/>
+              <line x1="200" y1="52" x2="200" y2="210" stroke="rgba(45,90,61,0.12)" stroke-width="1" stroke-dasharray="4,4"/>
+            </svg>
+
+            <div class="g-node g-node--task">
+              <div class="g-node-dot" style="background:#2d5a3d;"></div>
+              Tasks &amp; Projects
+            </div>
+            <div class="g-node g-node--note">
+              <div class="g-node-dot" style="background:#4a7c5e;"></div>
+              Notes
+            </div>
+            <div class="g-node g-node--event">
+              <div class="g-node-dot" style="background:#c4793a;"></div>
+              Calendar
+            </div>
+            <div class="g-node g-node--habit">
+              <div class="g-node-dot" style="background:#8a5a2d;"></div>
+              Habits
+            </div>
+            <div class="g-node g-node--finance">
+              <div class="g-node-dot" style="background:#3a6b5a;"></div>
+              Finance
+            </div>
+            <div class="g-node g-node--learn">
+              <div class="g-node-dot" style="background:#6b4a8a;"></div>
+              Learning
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       DESIGN TOKENS
+  ============================================================ -->
+  <section class="design-section" id="design" aria-labelledby="design-heading">
+    <div class="container">
+      <div class="design-section__header reveal">
+        <p class="t-eyebrow">Design system</p>
+        <h2 class="t-headline" id="design-heading">
+          Tokens, not decisions.<br>Consistency at every scale.
+        </h2>
+        <p class="t-body-lg" style="margin-top:0.875rem; max-width:52ch;">
+          Every color, every radius, every motion curve comes from the token set. No hardcoded hex values anywhere in the codebase. The moment someone breaks that rule, the system starts eroding.
+        </p>
+      </div>
+
+      <div class="design-tokens">
+
+        <!-- Color -->
+        <div class="reveal stagger-1">
+          <p class="token-group__label">Color — neutral-first</p>
+          <div class="token-swatches" style="margin-bottom:1.5rem;">
+            <div class="swatch" style="background:#1a1a18;" data-label="ink" title="Ink — primary text"></div>
+            <div class="swatch" style="background:#4a4a44;" data-label="soft" title="Ink soft"></div>
+            <div class="swatch" style="background:#8a8a82;" data-label="mute" title="Ink mute"></div>
+            <div class="swatch" style="background:#c8c8c0;" data-label="ghost" title="Ink ghost"></div>
+          </div>
+          <div class="token-swatches" style="margin-bottom:1.5rem;">
+            <div class="swatch" style="background:#f7f5f0;" data-label="paper" title="Paper base" border: 1px solid #e0ddd6;"></div>
+            <div class="swatch" style="background:#f0ede6;" data-label="p-2" title="Paper 2"></div>
+            <div class="swatch" style="background:#e8e4db;" data-label="p-3" title="Paper 3"></div>
+          </div>
+          <div class="token-swatches">
+            <div class="swatch" style="background:#2d5a3d;" data-label="accent" title="Accent — Atlas green"></div>
+            <div class="swatch" style="background:#4a7c5e;" data-label="acc-2" title="Accent 2"></div>
+            <div class="swatch" style="background:#c4793a;" data-label="warm" title="Accent warm"></div>
+          </div>
+        </div>
+
+        <!-- Type scale -->
+        <div class="reveal stagger-2">
+          <p class="token-group__label">Type scale — DM Serif + DM Sans</p>
+          <div class="type-scale">
+            <div class="type-row">
+              <span class="type-size">40</span>
+              <span class="type-sample" style="font-size:2.5rem;">Display</span>
+            </div>
+            <div class="type-row">
+              <span class="type-size">32</span>
+              <span class="type-sample" style="font-size:2rem;">Headline</span>
+            </div>
+            <div class="type-row">
+              <span class="type-size">24</span>
+              <span class="type-sample" style="font-size:1.5rem;">Title</span>
+            </div>
+            <div class="type-row">
+              <span class="type-size">18</span>
+              <span class="type-sample" style="font-size:1.125rem; font-family:var(--font-body); font-weight:300;">Body large</span>
+            </div>
+            <div class="type-row">
+              <span class="type-size">16</span>
+              <span class="type-sample" style="font-size:1rem; font-family:var(--font-body);">Body base</span>
+            </div>
+            <div class="type-row">
+              <span class="type-size">11</span>
+              <span class="type-sample" style="font-size:0.6875rem; font-family:var(--font-mono); letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-mute);">EYEBROW · MONO</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Motion & Radius -->
+        <div class="reveal stagger-3">
+          <p class="token-group__label" style="margin-bottom:1rem;">Radius</p>
+          <div class="radius-samples" style="margin-bottom:2rem;">
+            <div class="radius-box" style="width:44px;height:44px;border-radius:4px;">
+              <span>4</span>
+            </div>
+            <div class="radius-box" style="width:44px;height:44px;border-radius:8px;">
+              <span>8</span>
+            </div>
+            <div class="radius-box" style="width:44px;height:44px;border-radius:14px;">
+              <span>14</span>
+            </div>
+            <div class="radius-box" style="width:44px;height:44px;border-radius:22px;">
+              <span>22</span>
+            </div>
+          </div>
+
+          <p class="token-group__label" style="margin-bottom:1rem;">Motion — three durations</p>
+          <div style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div style="width:80px;height:6px;background:var(--paper-3);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:40%;background:var(--accent);border-radius:3px;animation:barAnim 2s var(--ease-out) infinite;"></div>
+              </div>
+              <span class="t-small">120ms · micro/hover</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div style="width:80px;height:6px;background:var(--paper-3);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:40%;background:var(--accent);border-radius:3px;animation:barAnim 2s var(--ease-out) 0.4s infinite;"></div>
+              </div>
+              <span class="t-small">200ms · standard</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+              <div style="width:80px;height:6px;background:var(--paper-3);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:40%;background:var(--accent);border-radius:3px;animation:barAnim 2s var(--ease-out) 0.9s infinite;"></div>
+              </div>
+              <span class="t-small">320ms · panel/modal</span>
+            </div>
+          </div>
+
+          <p style="margin-top:1.5rem;" class="t-small">Easing: <code style="font-family:var(--font-mono);font-size:0.65em;background:var(--paper-3);padding:0.15em 0.4em;border-radius:3px;">cubic-bezier(0.16, 1, 0.3, 1)</code></p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <style>
+    @keyframes barAnim {
+      0%   { transform: translateX(-100%); }
+      60%  { transform: translateX(200%); }
+      100% { transform: translateX(200%); }
+    }
+  </style>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       ROADMAP
+  ============================================================ -->
+  <section class="roadmap" id="roadmap" aria-labelledby="roadmap-heading">
+    <div class="container">
+      <div class="roadmap__header reveal">
+        <p class="t-eyebrow">Roadmap</p>
+        <h2 class="t-headline" id="roadmap-heading">
+          Phases, not features.
+        </h2>
+        <p class="t-body-lg" style="margin-top:0.875rem;max-width:50ch;">
+          Atlas is built in deliberate vertical slices — thin but real, proven before the next layer goes on. No moonshot features before the foundation is solid.
+        </p>
+      </div>
+
+      <div class="roadmap__track" role="list">
+
+        <div class="roadmap__phase roadmap__phase--done" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--done"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 0</div>
+          <div>
+            <div class="roadmap__phase-title">
+              Foundation
+              <span class="roadmap__badge roadmap__badge--done">done</span>
+            </div>
+            <p class="roadmap__phase-desc">Architecture decisions, token system, folder structure, naming conventions. The document you're reading is the deliverable.</p>
+          </div>
+        </div>
+
+        <div class="roadmap__phase" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--active"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 1</div>
+          <div>
+            <div class="roadmap__phase-title">
+              App shell
+              <span class="roadmap__badge roadmap__badge--active">current</span>
+            </div>
+            <p class="roadmap__phase-desc">Auth, core layout, command palette (⌘K), design system components. The skeleton every future pillar hangs on.</p>
+          </div>
+        </div>
+
+        <div class="roadmap__phase" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--pending"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 2</div>
+          <div>
+            <div class="roadmap__phase-title">
+              Tasks + Notes
+              <span class="roadmap__badge roadmap__badge--next">next</span>
+            </div>
+            <p class="roadmap__phase-desc">First two pillars end-to-end with cross-linking. Proves the architecture before five more modules go on top of it.</p>
+          </div>
+        </div>
+
+        <div class="roadmap__phase" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--pending"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 3</div>
+          <div>
+            <div class="roadmap__phase-title">Calendar + Habits</div>
+            <p class="roadmap__phase-desc">Two more pillars. The activity event log goes live here — cheap now, expensive to backfill later.</p>
+          </div>
+        </div>
+
+        <div class="roadmap__phase" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--pending"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 4</div>
+          <div>
+            <div class="roadmap__phase-title">Learning + Finance</div>
+            <p class="roadmap__phase-desc">The remaining pillars. By now every domain exists and the linking graph is meaningful.</p>
+          </div>
+        </div>
+
+        <div class="roadmap__phase" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--pending"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 5</div>
+          <div>
+            <div class="roadmap__phase-title">AI layer</div>
+            <p class="roadmap__phase-desc">Quick-capture NLP parsing, inline summaries, weekly review generation. AI built on top of real data — not bolted on day one.</p>
+          </div>
+        </div>
+
+        <div class="roadmap__phase" role="listitem">
+          <div class="roadmap__dot-wrap" aria-hidden="true">
+            <div class="roadmap__dot roadmap__dot--pending"></div>
+          </div>
+          <div class="roadmap__phase-num">Phase 6–9</div>
+          <div>
+            <div class="roadmap__phase-title">Analytics → Desktop → Mobile → Extensions</div>
+            <p class="roadmap__phase-desc">Cross-pillar dashboards, Tauri desktop shell, React Native, plugin API. Each phase is optional until it hurts not to have it.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       MANIFESTO
+  ============================================================ -->
+  <section class="manifesto" aria-label="Atlas manifesto">
+    <div class="container">
+      <span class="t-eyebrow">The reason Atlas exists</span>
+      <blockquote class="manifesto__quote reveal">
+        "Premium comes from<br><em>execution and taste,</em><br>not trend-chasing."
+      </blockquote>
+      <p class="manifesto__attr">— Atlas Foundation, §1 Philosophy</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ============================================================
+       CTA
+  ============================================================ -->
+  <section class="cta-section" id="cta" aria-labelledby="cta-heading">
+    <div class="container">
+      <span class="t-eyebrow">Get early access</span>
+      <h2 class="t-headline reveal" id="cta-heading">
+        Ready to use one system<br>instead of seven?
+      </h2>
+      <p class="t-body-lg reveal">
+        Atlas is currently in Phase 1. Drop your email to get access when the first real build ships.
+      </p>
+
+      <div class="cta-actions reveal">
+        <a href="mailto:hello@useAtlas.app" class="btn-primary-inv">
+          Request early access
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a href="https://github.com" class="btn-ghost-inv">
+          View on GitHub
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M2 6.5h9M8 3.5l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+
+      <div class="cta-principles reveal">
+        <div class="cta-principle">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M2 6.5l3 3 6-6" stroke="rgba(255,255,255,0.35)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          JSON &amp; Markdown export
+        </div>
+        <div class="cta-principle">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M2 6.5l3 3 6-6" stroke="rgba(255,255,255,0.35)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          No lock-in
+        </div>
+        <div class="cta-principle">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M2 6.5l3 3 6-6" stroke="rgba(255,255,255,0.35)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          WCAG 2.1 AA
+        </div>
+        <div class="cta-principle">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M2 6.5l3 3 6-6" stroke="rgba(255,255,255,0.35)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Open source
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FOOTER
+  ============================================================ -->
+  <footer class="footer" role="contentinfo">
+    <div class="container">
+      <div class="footer__inner">
+        <div class="footer__left">
+          <span class="footer__logo">Atlas</span>
+          <span class="footer__sep">·</span>
+          <span class="footer__tagline">Personal operating system</span>
+        </div>
+        <div class="footer__right">Phase 0 · 2025</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       SCRIPTS
+  ============================================================ -->
+  <script>
+    // ── Nav scroll state ──────────────────────────────────────────
+    const nav = document.getElementById('nav');
+    const onScroll = () => {
+      nav.classList.toggle('scrolled', window.scrollY > 32);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // ── Intersection Observer for scroll reveals ──────────────────
+    const revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in-view');
+            // unobserve after first reveal for performance
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -48px 0px' }
+    );
+
+    // Elements to observe
+    const revealTargets = document.querySelectorAll(
+      '.reveal, .philosophy__item, .pillar-card, .ai-card, .roadmap__phase'
+    );
+    revealTargets.forEach((el) => revealObserver.observe(el));
+
+    // ── Keyboard focus visible outline ───────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') document.body.classList.add('keyboard-nav');
+    });
+    document.addEventListener('mousedown', () => {
+      document.body.classList.remove('keyboard-nav');
+    });
+  </script>
+
+  <style>
+    /* Keyboard-only focus ring */
+    .keyboard-nav *:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+    *:focus:not(:focus-visible) { outline: none; }
+    *:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+  </style>
+
+</body>
+</html>
